@@ -45,4 +45,9 @@ char M128_TIM_fpt(char Lsbyte, char Mask, char Shift, char Data);
 char M128_TIM_isr(char Number,  void (*function)(void));
 char M128_TIM_isr_remove(char Number,  void (*function)(void));
 
+/**SDC00**/
+char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data);
+char ASA_SDC00_put(char ASA_ID, char LSByte, char Bytes, void *Data_p);
+char ASA_SDC00_get(char ASA_ID, char LSByte, char Bytes, void *Data_p);
+
 #endif

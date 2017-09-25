@@ -3,6 +3,7 @@
 //ASA Lib Gen1
 
 #include "ASA_Lib.h"
+#include "ASA_Core_M128.h"
 
 //Internal Definitions
 
@@ -54,6 +55,8 @@ char ASA_M128_set(void)
 	
 	UCSR0B |= (1<<RXEN0) | (1<<TXEN0);
 	UCSR0C |= (3<<UCSZ00);
+
+	ADDR_DDR |= (0x07 << ADDR0);
 
 	stdout = &STDIO_BUFFER;
 	stdin = &STDIO_BUFFER;
