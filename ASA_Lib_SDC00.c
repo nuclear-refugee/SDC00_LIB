@@ -114,7 +114,7 @@ char CheckSysInfoAndReadLastFileIndex(void)
 {
 	char SysInfoIDTemp[2];
 	unsigned int BytesTemp;
-	if( f_open(&FileObj, "ASYSINFO.ASI", FA_READ) != FR_OK )	// 開檔讀系統檔
+	if( f_open(&FileObj, "ASYSINFO.ASI", FA_OPEN_EXISTING | FA_READ) != FR_OK )	// 開檔讀系統檔
 	{
 		// 若系統檔不存在，則自動產生一個新的系統檔
 		if( f_open(&FileObj, "ASYSINFO.ASI", FA_CREATE_ALWAYS) != FR_OK )
@@ -132,15 +132,20 @@ char CheckSysInfoAndReadLastFileIndex(void)
 	}
 	else
 	{
-		if( f_read(&FileObj, SysInfoIDTemp, 2, &BytesTemp) != FR_OK )
-		return ARSDC_SDC_STATE_ERR;
+		FRESULT res = f_read(&FileObj, SysInfoIDTemp, 2, &BytesTemp);
+		if( res != FR_OK ) {
+			printf("Read ASYSINFO.ASI failed, error code <%d> \n", res);
+			return ARSDC_SDC_STATE_ERR;
+		}
+		
 		f_close(&FileObj);
 		LastFileIndex = (unsigned int)SysInfoIDTemp[1]*256 + SysInfoIDTemp[0];
+		printf("LastFileIndex  = %d\n", LastFileIndex);
 	}
 	return ARSDC_OK;
 }
 
-char ASA_SDC00_Init(void)
+char ASA_SDC00_Init(char ASA_ID)
 {
 	char res;	// 0:All OK, 1:SD Not OK, 2:RTC Not OK, 3:All Not OK.
 	char i;
@@ -166,39 +171,43 @@ char ASA_SDC00_Init(void)
 
 	ASA_SDC00_Select(0);
 
-	for(i=0; i<8; i++)										// 跑一趟for loop自動偵測SDC ID編號
-	{
-		res = 0;
-		ASA_ID_set(i);
-		
-		if( f_mount(&FatFs[0], "0:", 0) != FR_OK )			// SD card mount a volume
-		{
-			res = 1;
-			continue;
-		}
+	_delay_ms(100);
 
-		if( f_chdir(ASA_DATA_Dir) != FR_OK )				// 切換路徑至ASA預設資料夾
-		{
-			f_mkdir(ASA_DATA_Dir);							// 若預設資料夾不存在則建立一個新的
-			if( f_chdir(ASA_DATA_Dir) != FR_OK )			// 再切換過去一次
-			res += 1;
-			else
-			{
-				if( CheckSysInfoAndReadLastFileIndex() != ARSDC_OK )
-				return ARSDC_SDC_STATE_ERR;
-				ASA_SDC00_ID = i;
-				ASA_DATA_Dir[0] = '\0';					// 切過去後將預設路徑設為空
-				break;
-			}
-		}
+	res = 0;
+	printf("Set ASA ID :%d \n", ASA_ID);
+	ASA_ID_set(ASA_ID);
+		
+	if( f_mount(&FatFs[0], "", 1) != FR_OK )			// SD card mount a volume
+	{
+		printf("Mount ID<%d> Failed\n", ASA_ID);
+		res = 1;
+		return res;
+	}
+	else {
+		printf("Mount ID<%d> successful\n", ASA_ID);
+	}
+
+	if( f_chdir(ASA_DATA_Dir) != FR_OK )				// 切換路徑至ASA預設資料夾
+	{
+		f_mkdir(ASA_DATA_Dir);							// 若預設資料夾不存在則建立一個新的
+		if( f_chdir(ASA_DATA_Dir) != FR_OK )			// 再切換過去一次
+		res += 1;
 		else
 		{
 			if( CheckSysInfoAndReadLastFileIndex() != ARSDC_OK )
 			return ARSDC_SDC_STATE_ERR;
-			ASA_SDC00_ID = i;
-			ASA_DATA_Dir[0] = '\0';						// 切過去後將預設路徑設為空
-			break;
+			ASA_SDC00_ID = ASA_ID;
+			ASA_DATA_Dir[0] = '\0';					// 切過去後將預設路徑設為空
 		}
+	}
+	else
+	{
+		f_chdir("\\");
+		if( CheckSysInfoAndReadLastFileIndex() != ARSDC_OK )
+		return ARSDC_SDC_STATE_ERR;
+		f_chdir(ASA_DATA_Dir);
+		ASA_SDC00_ID = ASA_ID;
+		ASA_DATA_Dir[0] = '\0';						// 切過去後將預設路徑設為空
 	}
 
 	ASA_SDC00_Deselect();
@@ -239,10 +248,9 @@ char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 {
 	char set_Data = 0, SysInfoIDTemp[2];
 	unsigned int BytesTemp;
-	printf("SDC00 initial set! \n");
 	if( SDC_Init_Success_Flag == 0 )			// 第一次被呼叫設定時進行SDC初始化
 	{
-		if( ASA_SDC00_Init() == 0 )
+		if( ASA_SDC00_Init(ASA_ID) == 0 )
 		SDC_Init_Success_Flag = 1;
 		else
 		return ARSDC_SDC_STATE_ERR;
