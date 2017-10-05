@@ -308,16 +308,16 @@ char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 			
 			case SDC_FCF_OVERWRITE:		// 若設為開檔蓋寫							
 				if( f_open(&FileObj, FileName, FA_CREATE_ALWAYS) != FR_OK )	// 強制開新檔案蓋寫
-				return ARSDC_SDC_STATE_ERR;
+					return ARSDC_SDC_STATE_ERR;
 				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// 開檔設為寫
-				return ARSDC_SDC_STATE_ERR;
+					return ARSDC_SDC_STATE_ERR;
 				SDC_State = 2;
 				break;
 			case SDC_FCF_CONTINUEWRITE:	// 開檔允續寫/若檔案編號設為0則開新檔案
 				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// 開檔設為寫
-				return ARSDC_SDC_STATE_ERR;
+					return ARSDC_SDC_STATE_ERR;
 				if( f_lseek(&FileObj, f_size(&FileObj)) != FR_OK )			// 將資料位置指標移到檔尾續寫
-				return ARSDC_SDC_STATE_ERR;
+					return ARSDC_SDC_STATE_ERR;
 				SDC_State = 2;
 				break;
 			
@@ -363,7 +363,7 @@ char ASA_SDC00_put(char ASA_ID, char LSByte, char Bytes, void *Data_p)
 	static char name_buffer[8];
 	static char name_ext_buffer[3];
 #ifdef _DEBUG_INFO
-	printf("SDC state: %d\n", SDC_State);
+	printf("<State> SDC status: %d\n", SDC_State);
 #endif
 	switch(SDC_State)
 	{
@@ -406,12 +406,34 @@ char ASA_SDC00_put(char ASA_ID, char LSByte, char Bytes, void *Data_p)
 			break;
 		case 2:	// If current is at Opened file mode ([Overlap/Continue] Write mode)
 			if( LSByte == 0 ) {
+				// Try to write date to SDC00
+#ifdef _DEBUG_INFO
+				printf("<FAT Wrtie> Try to writing %d bytes data\n", Bytes);
+				for(int i=0; i<Bytes; i++) {
+					printf("%02x ", ((char*)Data_p)[i]);
+					if((i+1)%8 == 0) {
+						printf("\n");
+					}
+				}
+				printf("\n");
+				for(int i=0; i<Bytes; i++) {
+					printf("%2c ", ((char*)Data_p)[i]);
+					if((i+1)%8 == 0) {
+						printf("\n");
+					}
+				}
+#endif
 				if(  res = f_write(&FileObj, Data_p, Bytes, &WriteBytes)) {
 #ifdef _DEBUG_INFO
 					printf("<FAT Write> write fail errorcode: %d\n", res);
-					return ARSDC_SDC_STATE_ERR;
 #endif
+					return ARSDC_SDC_STATE_ERR;
+
 				}
+#ifdef _DEBUG_INFO
+				printf("<FAT Write> write result code: %d\n", res);
+				printf("<FAT Write> write %d Bytes: %ul\n", WriteBytes);
+#endif
 			}
 			else
 				return ARSDC_LSBYTE_ERR;

@@ -3,8 +3,11 @@
 int main(void)
 {
 	
+	int a = 'A' - 'B' + 3.1;
+	
+
 	ASA_M128_set();
-	printf("Test!!\n");
+	printf("Test!! %d\n",a);
 
 	/* Variables for ASA lib */
 	unsigned char ASA_ID = 1, Mask = 0xFF, Shift = 0, Setting = 0xFF, Bytes, i;
@@ -72,7 +75,8 @@ int main(void)
 
 
 
-		ASA_SDC00_put(ASA_ID, 64, 8, "data021");
+
+		ASA_SDC00_put(ASA_ID, 64, 6, "testa");
 		ASA_SDC00_put(ASA_ID, 72, 3, "txt");
 
 		// Open file with (overlapp)
@@ -81,19 +85,22 @@ int main(void)
 			printf("Debug point 3, error code <%d>\n", check);
 			break;
 		}
+
 		for(int i= 555; i<600; i++) {
-			sprintf(swap_buffer, "there is %d\n",i);
+			sprintf(swap_buffer, "there is %d\n\r",i);
 			int sizeof_string =64;
 			for(int i=0; i<sizeof(swap_buffer); i++) {
 				if( swap_buffer[i] == '\0' ) {
 					sizeof_string = i+1;
+					break;
 				}
 			}
-			ASA_SDC00_put(ASA_ID, 0, sizeof_string, swap_buffer );
+			ASA_SDC00_put(ASA_ID, 0, sizeof_string, swap_buffer);
 		}
+
 		
 		// Close file
-		check = ASA_SDC00_set(ASA_ID, 200, Mask, Shift, 0x05);
+		check = ASA_SDC00_set(ASA_ID, 200, Mask, Shift, 0x00);
 		if( check != 0 ) {				// 檢查回傳值做後續處理
 			printf("Debug point 3, error code <%d>\n", check);
 			break;
