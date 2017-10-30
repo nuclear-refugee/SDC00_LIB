@@ -6,7 +6,7 @@
 #include "ASA_Core_M128.h"
 #include "ff.h"
 
-#define _DEBUG_INFO
+//#define _DEBUG_INFO
 
 /**** Internal Definitions ****/
 
@@ -67,7 +67,6 @@ int RTC_init(void);
 
 /**** Global Variables ****/
 FATFS FatFs[FF_VOLUMES];		// File system object for each logical drive
-FILINFO Finfo;
 FIL FileObj;				// File object
 DIR DirObj;					// Directory object
 
@@ -75,6 +74,7 @@ char FileName[13];
 char ASA_DATA_Dir[9] = "ASA_DATA";
 unsigned int FileID = 0;
 char SDC_State = 0;
+char is_file_extcheck = 0;
 char ASA_SDC00_ID = 44;		// Have SDC:0~7, No SDC:44
 static char SDC_Init_Success_Flag = 0;
 static char ASA_RTC00_ID = 44;		// Have RTC:0~7, No RTC:44
@@ -93,12 +93,12 @@ char ASA_ID_check(unsigned char ASA_ID)
 	return 1;
 }
 
-char ASA_ID_set(unsigned char ASA_ID)
+inline char ASA_ID_set(unsigned char ASA_ID)
 {
-	if(ASA_ID_check(ASA_ID)==0)
+	if(ASA_ID>=0 && ASA_ID<=7)
 	{
 		unsigned char ASA_ID_temp;
-		
+
 		ASA_ID_temp = ADDR_PORT;
 		ASA_ID_temp &= ~(0x07 << ADDR0);
 		ASA_ID_temp |= ((ASA_ID & 0x07) << ADDR0);
@@ -108,7 +108,7 @@ char ASA_ID_set(unsigned char ASA_ID)
 	}
 	
 	else
-	return 1;
+		return 1;
 }
 
 /**** Functions ****/
@@ -129,40 +129,40 @@ void ASA_SDC00_Deselect(void)
 	PORTB |=  0b00000000;
 }
 
-char CheckSysInfoAndReadLastFileIndex(void)
-{
-	char SysInfoIDTemp[2];
-	unsigned int BytesTemp;
-	if( f_open(&FileObj, "ASYSINFO.ASI", FA_OPEN_EXISTING | FA_READ) != FR_OK )	// 開檔讀系統檔
-	{
-		// 若系統檔不存在，則自動產生一個新的系統檔
-		if( f_open(&FileObj, "ASYSINFO.ASI", FA_CREATE_ALWAYS) != FR_OK )
-		return ARSDC_SDC_STATE_ERR;
-		LastFileIndex = 3;
-		SysInfoIDTemp[1] = LastFileIndex/256;
-		SysInfoIDTemp[0] = LastFileIndex%256;
-		if( f_open(&FileObj, "ASYSINFO.ASI", FA_WRITE) )		// 開檔寫系統檔
-		return ARSDC_SDC_STATE_ERR;
-		if( f_write(&FileObj, SysInfoIDTemp, 2, &BytesTemp) )		// 修改系統檔已用流水序號
-		return ARSDC_SDC_STATE_ERR;
-		f_close(&FileObj);
-		if( f_chmod("ASYSINFO.ASI", 0x07, 0xFF) )			// 設定唯讀
-		return ARSDC_SDC_STATE_ERR;
-	}
-	else
-	{
-		FRESULT res = f_read(&FileObj, SysInfoIDTemp, 2, &BytesTemp);
-		if( res != FR_OK ) {
-			printf("Read ASYSINFO.ASI failed, error code <%d> \n", res);
-			return ARSDC_SDC_STATE_ERR;
-		}
-		
-		f_close(&FileObj);
-		LastFileIndex = (unsigned int)SysInfoIDTemp[1]*256 + SysInfoIDTemp[0];
-		printf("LastFileIndex  = %d\n", LastFileIndex);
-	}
-	return ARSDC_OK;
-}
+//char CheckSysInfoAndReadLastFileIndex(void)
+//{
+	//char SysInfoIDTemp[2];
+	//unsigned int BytesTemp;
+	//if( f_open(&FileObj, "ASYSINFO.ASI", FA_OPEN_EXISTING | FA_READ) != FR_OK )	// 開檔讀系統檔
+	//{
+		//// 若系統檔不存在，則自動產生一個新的系統檔
+		//if( f_open(&FileObj, "ASYSINFO.ASI", FA_CREATE_ALWAYS) != FR_OK )
+		//return ARSDC_SDC_STATE_ERR;
+		//LastFileIndex = 3;
+		//SysInfoIDTemp[1] = LastFileIndex/256;
+		//SysInfoIDTemp[0] = LastFileIndex%256;
+		//if( f_open(&FileObj, "ASYSINFO.ASI", FA_WRITE) )		// 開檔寫系統檔
+		//return ARSDC_SDC_STATE_ERR;
+		//if( f_write(&FileObj, SysInfoIDTemp, 2, &BytesTemp) )		// 修改系統檔已用流水序號
+		//return ARSDC_SDC_STATE_ERR;
+		//f_close(&FileObj);
+		//if( f_chmod("ASYSINFO.ASI", 0x07, 0xFF) )			// 設定唯讀
+		//return ARSDC_SDC_STATE_ERR;
+	//}
+	//else
+	//{
+		//FRESULT res = f_read(&FileObj, SysInfoIDTemp, 2, &BytesTemp);
+		//if( res != FR_OK ) {
+			//printf("Read ASYSINFO.ASI failed, error code <%d> \n", res);
+			//return ARSDC_SDC_STATE_ERR;
+		//}
+		//
+		//f_close(&FileObj);
+		//LastFileIndex = (unsigned int)SysInfoIDTemp[1]*256 + SysInfoIDTemp[0];
+		//printf("LastFileIndex  = %d\n", LastFileIndex);
+	//}
+	//return ARSDC_OK;
+//}
 
 char ASA_SDC00_Init(char ASA_ID)
 {
@@ -213,24 +213,20 @@ char ASA_SDC00_Init(char ASA_ID)
 	}
 #endif
 
-	if( f_chdir(ASA_DATA_Dir) != FR_OK )				// 切換路徑至ASA預設資料夾
+	if( f_chdir(ASA_DATA_Dir) != FR_OK )				// Trying goto ASA default directory
 	{
-		f_mkdir(ASA_DATA_Dir);							// 若預設資料夾不存在則建立一個新的
-		if( f_chdir(ASA_DATA_Dir) != FR_OK )			// 再切換過去一次
-		res += 1;
-		else
-		{
-			if( CheckSysInfoAndReadLastFileIndex() != ARSDC_OK )
-			return ARSDC_SDC_STATE_ERR;
+		f_mkdir(ASA_DATA_Dir);							// If ASA Default directory don't exist, then create one
+		if( f_chdir(ASA_DATA_Dir) != FR_OK ) {			// Goto ASA Default directory again
+			res += 1;
+		}
+		else {
 			ASA_SDC00_ID = ASA_ID;
-			ASA_DATA_Dir[0] = '\0';					// 切過去後將預設路徑設為空
+			ASA_DATA_Dir[0] = '\0';						// While successful goto default dir, reset ASA_DATA_Dir
 		}
 	}
 	else
 	{
 		f_chdir("\\");
-		if( CheckSysInfoAndReadLastFileIndex() != ARSDC_OK )
-		return ARSDC_SDC_STATE_ERR;
 		f_chdir(ASA_DATA_Dir);
 		ASA_SDC00_ID = ASA_ID;
 		ASA_DATA_Dir[0] = '\0';						// 切過去後將預設路徑設為空
@@ -242,35 +238,6 @@ char ASA_SDC00_Init(char ASA_ID)
 #endif
 	return res;
 }
-
-char FileIDtoNameConvert(int ID, char* Name)
-{
-	if( f_opendir(&DirObj, ASA_DATA_Dir) != FR_OK )
-	return 1;
-	int obj_index = 0;
-	while(1)
-	{
-		if( f_readdir(&DirObj, &Finfo) != FR_OK )	// SD讀寫通訊異常
-		return 2;
-		
-		if( !Finfo.fname[0] )						// 若fname為空代表已經沒有檔案可讀參
-		return 3;
-		if(Finfo.fattrib & AM_DIR)
-		;
-		else if(Finfo.fattrib & AM_RDO || Finfo.fattrib & AM_HID || Finfo.fattrib & AM_SYS)
-		;
-		else {
-			if( obj_index == ID )
-			{
-				sprintf(Name, "%s", Finfo.fname);	// 記下檔案名稱
-				EndPointOfFile = Finfo.fsize;		// 記下檔案大小當成檔尾
-				return ARSDC_OK;
-			}
-		}
-		obj_index++; // Manual count-up index ( new version FatFs without DRI.index member )
-	}
-}
-
 
 char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 {
@@ -297,16 +264,32 @@ char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 			case SDC_FCF_CLOSE:			// Close file
 				f_close(&FileObj);
 				SDC_State = 0;
+				is_file_extcheck = 0;
 				break;
 			
 			case SDC_FCF_READ:			// Open File (Read only)
+				// Check there is a Closed file state
+				if(SDC_State != 0) {
+#ifdef _DEBUG_INFO
+					printf("<SDC00_Set> Need to close file first, State <%d> \n", SDC_State);
+#endif
+					return ARSDC_OPEN_FILE_ERR;
+				}
+
 				// TODO: need to make sure there is "FileName already setup"
 				if( f_open(&FileObj, FileName, FA_READ) != FR_OK )
 					return ARSDC_OPEN_FILE_ERR;
 				SDC_State = 1;
 				break;
 			
-			case SDC_FCF_OVERWRITE:		// 若設為開檔蓋寫							
+			case SDC_FCF_OVERWRITE:		// 若設為開檔蓋寫	
+				// Check there is a Closed file state
+				if(SDC_State != 0) {
+#ifdef _DEBUG_INFO
+					printf("<SDC00_Set> Need to close file first, State <%d> \n", SDC_State);
+#endif
+					return ARSDC_OPEN_FILE_ERR;
+				}						
 				if( f_open(&FileObj, FileName, FA_CREATE_ALWAYS) != FR_OK )	// 強制開新檔案蓋寫
 					return ARSDC_SDC_STATE_ERR;
 				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// 開檔設為寫
@@ -314,6 +297,13 @@ char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 				SDC_State = 2;
 				break;
 			case SDC_FCF_CONTINUEWRITE:	// 開檔允續寫/若檔案編號設為0則開新檔案
+				// Check there is a Closed file state
+				if(SDC_State != 0) {
+#ifdef _DEBUG_INFO
+					printf("<SDC00_Set> Need to close file first, State <%d> \n", SDC_State);
+#endif
+					return ARSDC_OPEN_FILE_ERR;
+				}
 				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// 開檔設為寫
 					return ARSDC_SDC_STATE_ERR;
 				if( f_lseek(&FileObj, f_size(&FileObj)) != FR_OK )			// 將資料位置指標移到檔尾續寫
@@ -485,41 +475,47 @@ char ASA_SDC00_get(char ASA_ID, char LSByte, char Bytes, void *Data_p)
 	FRESULT fr;
 	FILINFO fno;
 
-	if( SDC_Init_Success_Flag == 0 )			// 若沒初始化表開檔會失敗
-	return ARSDC_SDC_STATE_ERR;
+	if( SDC_Init_Success_Flag == 0 )			// Check there is Initialized
+		return ARSDC_SDC_STATE_ERR;
 	if( ASA_SDC00_ID != ASA_ID )
-	return ARSDC_ID_ERR;
+		return ARSDC_ID_ERR;
 	// TODO: Modify valid LSByte section
 	//if( LSByte > 101 || LSByte < 100 )
 	//return ARSDC_LSBYTE_ERR;
 	if( LSByte == LSBYTE_DATA_SWAP_BUF )
-	if( Bytes > 64 || Bytes < 0 )
-	return ARSDC_BYTES_ERR;
+		if( Bytes > 64 || Bytes < 0 )
+			return ARSDC_BYTES_ERR;
 
 	ASA_SDC00_Select(ASA_ID);
 
 	switch(SDC_State)
 	{
 		case 0:	// If current is in closed file mode
-		return ARSDC_NO_OPEN_FILE;
-		break;
+			return ARSDC_NO_OPEN_FILE;
+			break;
 		case 1:	// If current is at Opened file mode (Read Only)
-			// Fetch file information first
-			if(check_info(FileName, &fno) != FR_OK) {
-				return ARSDC_OPEN_FILE_ERR;
-			}
+			
+			// Check there is same file that was Checked
+			if(!is_file_extcheck)
+				// Fetch file information first
+				if(check_info(FileName, &fno) != FR_OK)
+					return ARSDC_OPEN_FILE_ERR;
+				else
+					// Mark that the file was Checked
+					is_file_extcheck = 1;
 
 			switch(LSByte) {
 			case LSBYTE_DATA_SWAP_BUF:
 				if(f_read(&FileObj, p_data, Bytes, &ReadBytes) != FR_OK)
 					return ARSDC_SDC_STATE_ERR;
-				if(Bytes != ReadBytes) {
-					return ARSDC_NO_DATA_TO_READ;
-				}
-				else {												// While read bytes less than user setting,
+				if(ReadBytes < Bytes) {												// While read bytes less than user setting,
 					((char*) p_data)[(int)Bytes-1] = ReadBytes; 	// then record received bytes at last byte in buffer
 					return ARSDC_DATA_NUM_ENOUGH;
 				}
+				if(ReadBytes == 0) {
+					return ARSDC_NO_DATA_TO_READ;
+				}
+
 				break;
 			case LSBYTE_ATTR_TIME:
 #ifdef _DEBUG_INFO
@@ -558,6 +554,8 @@ char ASA_SDC00_get(char ASA_ID, char LSByte, char Bytes, void *Data_p)
 				break;
 			}
 
+			// Successful operate
+			return 0;
 		case 2:	// If current is at Opened file mode ([Overlap/Continue] Write mode)
 			return ARSDC_WRITE_SETTING;
 		default:
@@ -604,7 +602,7 @@ FRESULT check_info(char* file_name, FILINFO* p_fno) {
 		break;
 
 		default:
-		printf("An error occured. (%d)\n", fr);
+		printf("An error occurred. (%d)\n", fr);
 	}
 #endif
 

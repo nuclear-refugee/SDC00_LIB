@@ -440,14 +440,14 @@ end:
 # Display size of file.
 HEXSIZE = $(SIZE) --target=$(FORMAT) $(TARGET).hex
 ELFSIZE = $(SIZE) --mcu=$(MCU) --format=avr $(TARGET).elf
+AVRMEM = avr-mem.sh $(TARGET).elf $(MCU)
 
 sizebefore:
-	@if test -f $(TARGET).elf; then echo; echo $(MSG_SIZE_BEFORE); $(ELFSIZE); \
-	2>/dev/null; echo; fi
+#	@if test $(TARGET).elf; then echo; echo $(MSG_SIZE_BEFORE); $(ELFSIZE); \
+#    $(AVRMEM) 2>/dev/null; echo; fi
 
 sizeafter:
-	@if test -f $(TARGET).elf; then echo; echo $(MSG_SIZE_AFTER); $(ELFSIZE); \
-	2>/dev/null; echo; fi
+	@$(ELFSIZE)
 
 
 
