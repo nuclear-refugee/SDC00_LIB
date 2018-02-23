@@ -34,7 +34,7 @@
 #define ARSDC_WRITE_SETTING		12
 #define ARSDC_NO_DATA_TO_READ	13
 #define ARSDC_DATA_NUM_ENOUGH	14
-#define ARSDC_RENAME_ERR		15			// ���w�ɮ׽s�����s�b���ɦW�w�s�b���୫�ƨϥ�
+#define ARSDC_RENAME_ERR		15			// 指定檔案編號不存在或檔名已存在不能重複使用
 
 /**** SDC00 LSByte definition ****/
 // Register address
