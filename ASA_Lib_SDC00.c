@@ -193,7 +193,7 @@ char ASA_SDC00_Init(char ASA_ID)
 		f_chdir("\\");
 		f_chdir(ASA_DATA_Dir);
 		ASA_SDC00_ID = ASA_ID;
-		ASA_DATA_Dir[0] = '\0';						// ���L�h���N�w�]���|�]����
+		ASA_DATA_Dir[0] = '\0';						// 切過去後將預設路徑設為空
 	}
 
 	ASA_SDC00_Deselect();
@@ -245,7 +245,7 @@ char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 				SDC_State = 1;
 				break;
 
-			case SDC_FCF_OVERWRITE:		// �Y�]���}�ɻ\�g
+			case SDC_FCF_OVERWRITE:		// 若設為開檔蓋寫
 				// Check there is a Closed file state
 				if(SDC_State != 0) {
 #ifdef _DEBUG_INFO
@@ -253,13 +253,13 @@ char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 #endif
 					return ARSDC_OPEN_FILE_ERR;
 				}
-				if( f_open(&FileObj, FileName, FA_CREATE_ALWAYS) != FR_OK )	// �j���}�s�ɮ׻\�g
+				if( f_open(&FileObj, FileName, FA_CREATE_ALWAYS) != FR_OK )	// 強制開新檔案蓋寫
 					return ARSDC_SDC_STATE_ERR;
-				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// �}�ɳ]���g
+				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// 開檔設為寫
 					return ARSDC_SDC_STATE_ERR;
 				SDC_State = 2;
 				break;
-			case SDC_FCF_CONTINUEWRITE:	// �}�ɤ����g/�Y�ɮ׽s���]��0�h�}�s�ɮ�
+			case SDC_FCF_CONTINUEWRITE:	// 開檔允續寫/若檔案編號設為0則開新檔案
 				// Check there is a Closed file state
 				if(SDC_State != 0) {
 #ifdef _DEBUG_INFO
