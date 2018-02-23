@@ -1,5 +1,5 @@
-//Author    : Name
-//Last Edit : Name YYYY/MM/DD
+//Author    : Ye cheng-wei
+//Last Edit : Name 2018/02/23
 //ASA Lib Gen2
 
 #include "ASA_Lib.h"
@@ -34,7 +34,8 @@
 #define ARSDC_WRITE_SETTING		12
 #define ARSDC_NO_DATA_TO_READ	13
 #define ARSDC_DATA_NUM_ENOUGH	14
-#define ARSDC_RENAME_ERR		15			// 指定檔案編號不存在或檔名已存在不能重複使用
+// Specific file id not exist or not available
+#define ARSDC_RENAME_ERR		15
 
 /**** SDC00 LSByte definition ****/
 // Register address
@@ -66,7 +67,7 @@
 int RTC_init(void);
 
 /**** Global Variables ****/
-FATFS FatFs[FF_VOLUMES];		// File system object for each logical drive
+FATFS FatFs[FF_VOLUMES];	// File system object for each logical drive
 FIL FileObj;				// File object
 DIR DirObj;					// Directory object
 
@@ -134,10 +135,10 @@ char ASA_SDC00_Init(char ASA_ID)
 	char res;	// 0:All OK, 1:SD Not OK, 2:RTC Not OK, 3:All Not OK.
 
 	// TODO: Add RTC Library and enable these code
-	//// ���ˬd�O�_��RTC00�i�Ѱt�X���Ѯɶ�
-	//if( RTC_Init_Success_Flag == 0 )			// �Ĥ@���Q�I�s�]�w�ɶi��RTC���l��
+	//// Check ther is a available RTC00 module to supply current time
+	//if( RTC_Init_Success_Flag == 0 )			// Initialize at first called
 	//{
-	//for(i=0; i<8; i++)						// �]�@��for loop�۰ʰ���RTC ID�s��
+	//for(i=0; i<8; i++)						// Run a loop (0~7) autodetect RTC00 module id
 	//{
 	//ASA_ID_set(i);
 	//if( RTC_init() == 1 )
@@ -177,15 +178,15 @@ char ASA_SDC00_Init(char ASA_ID)
 	}
 #endif
 
-	if( f_chdir(ASA_DATA_Dir) != FR_OK )				// Trying goto ASA default directory
+	if( f_chdir(ASA_DATA_Dir) != FR_OK )			// Trying goto ASA default directory
 	{
-		f_mkdir(ASA_DATA_Dir);							// If ASA Default directory don't exist, then create one
-		if( f_chdir(ASA_DATA_Dir) != FR_OK ) {			// Goto ASA Default directory again
+		f_mkdir(ASA_DATA_Dir);						// If ASA Default directory don't exist, then create one
+		if( f_chdir(ASA_DATA_Dir) != FR_OK ) {		// Goto ASA Default directory again
 			res += 1;
 		}
 		else {
 			ASA_SDC00_ID = ASA_ID;
-			ASA_DATA_Dir[0] = '\0';						// While successful goto default dir, reset ASA_DATA_Dir
+			ASA_DATA_Dir[0] = '\0';					// While successful goto default dir, reset ASA_DATA_Dir
 		}
 	}
 	else
@@ -193,7 +194,7 @@ char ASA_SDC00_Init(char ASA_ID)
 		f_chdir("\\");
 		f_chdir(ASA_DATA_Dir);
 		ASA_SDC00_ID = ASA_ID;
-		ASA_DATA_Dir[0] = '\0';						// 切過去後將預設路徑設為空
+		ASA_DATA_Dir[0] = '\0';						// go to target folder and set default path to root
 	}
 
 	ASA_SDC00_Deselect();
@@ -245,7 +246,7 @@ char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 				SDC_State = 1;
 				break;
 
-			case SDC_FCF_OVERWRITE:		// 若設為開檔蓋寫
+			case SDC_FCF_OVERWRITE:		// if there is [Open file with override] mode
 				// Check there is a Closed file state
 				if(SDC_State != 0) {
 #ifdef _DEBUG_INFO
@@ -253,13 +254,13 @@ char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 #endif
 					return ARSDC_OPEN_FILE_ERR;
 				}
-				if( f_open(&FileObj, FileName, FA_CREATE_ALWAYS) != FR_OK )	// 強制開新檔案蓋寫
+				if( f_open(&FileObj, FileName, FA_CREATE_ALWAYS) != FR_OK )	// force create new file to override
 					return ARSDC_SDC_STATE_ERR;
-				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// 開檔設為寫
+				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// open file and set WRITE mode
 					return ARSDC_SDC_STATE_ERR;
 				SDC_State = 2;
 				break;
-			case SDC_FCF_CONTINUEWRITE:	// 開檔允續寫/若檔案編號設為0則開新檔案
+			case SDC_FCF_CONTINUEWRITE:	// if there is [Open file with append] mode
 				// Check there is a Closed file state
 				if(SDC_State != 0) {
 #ifdef _DEBUG_INFO
@@ -267,18 +268,18 @@ char ASA_SDC00_set(char ASA_ID, char LSByte, char Mask, char shift, char Data)
 #endif
 					return ARSDC_OPEN_FILE_ERR;
 				}
-				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// �}�ɳ]���g
+				if( f_open(&FileObj, FileName, FA_WRITE) != FR_OK )			// open file and set WRITE mode
 					return ARSDC_SDC_STATE_ERR;
-				if( f_lseek(&FileObj, f_size(&FileObj)) != FR_OK )			// �N���Ʀ��m���в����ɧ����g
+				if( f_lseek(&FileObj, f_size(&FileObj)) != FR_OK )			// set data cursor to EOF to append data
 					return ARSDC_SDC_STATE_ERR;
 				SDC_State = 2;
 				break;
 
-			default:	// �P�ɳ]�w���ӥH�W�X�СA�^�����~
+			default:	// Multiple command, command error
 				return ARSDC_MUTI_SET_ERR;
 		}
 		break;
-		default:	// LSByte���~�A���b�]�w�Ȧs���C��LSB200~200���d����
+		default:	// LSByte error, not list on the register table
 		return ARSDC_LSBYTE_ERR;
 		break;
 
@@ -294,7 +295,7 @@ char ASA_SDC00_put(char ASA_ID, char LSByte, char Bytes, void *Data_p)
 	FRESULT res;
 	unsigned int WriteBytes;
 
-	if( LSByte == 200 )						// �]�w�ɮױ����X�мȦs��
+	if( LSByte == 200 )					// set File control flag register
 		return ASA_SDC00_set(ASA_ID, LSByte, 0xFF, 0x00, (char)((char*)Data_p)[0]);
 
 	if( SDC_Init_Success_Flag == 0 )	// Initialize at first call
