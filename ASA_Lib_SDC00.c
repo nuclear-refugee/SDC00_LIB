@@ -376,7 +376,8 @@ char ASA_SDC00_put(char ASA_ID, char LSByte, char Bytes, void *Data_p)
 					}
 				}
 #endif
-				if(  res = f_write(&FileObj, Data_p, Bytes, &WriteBytes)) {
+				res = f_write(&FileObj, Data_p, Bytes, &WriteBytes);
+				if( res ) {
 #ifdef _DEBUG_INFO
 					printf("<FAT Write> write fail errorcode: %d\n", res);
 #endif
