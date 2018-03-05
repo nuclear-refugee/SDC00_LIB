@@ -125,9 +125,17 @@ void main(void) {
 	unsigned char sz_buffer[4];
 
 	// Read file parameter (File size)
-	check = ASA_SDC00_get(ASA_ID, 82, 1, sz_buffer);
+	check = ASA_SDC00_get(ASA_ID, 82, 4, sz_buffer);
+
+	for(int i=0; i<4; i++) {
+		printf("<OUT> sz_buffer[%d]: %d\n",i,  (int)(sz_buffer[i]));
+	}
 	// File size(byte) : (bit 31:0)
-	printf("<OUT>Sz: %ld\n", (sz_buffer[0]) + (sz_buffer[1] << 8) + (sz_buffer[2] << 16) + (sz_buffer[3] << 24));
+	printf("<OUT> Sz: %ld\n",
+	 ((long int)(sz_buffer[0])) +
+	 ((long int)(sz_buffer[1]) << 8) +
+	 ((long int)(sz_buffer[2]) << 16) +
+	 ((long int)(sz_buffer[3]) << 24));
 
 	// Configure to close file mode
 	Setting = 0x00;
